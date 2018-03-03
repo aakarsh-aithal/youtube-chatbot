@@ -8,6 +8,12 @@ var botbuilder_azure = require("botbuilder-azure");
 var botauth = require("botauth");
 var GoogleStrategy = require('passport-google-oauth20').Strategy;
 
+process.env['MicrosoftAppId'] = 'd03d7959-06b2-4a56-a2b7-de1023b68bd7';
+process.env['MicrosoftAppPassword'] = 'k8S>b5omCfyVkq$9';
+process.env['LuisAppId'] = 'f765075e-9aad-4c1e-9a3c-0f13e8862aad';
+process.env['LuisAPIKey'] = '9c4f87961624441f86f77cd4b677e41c';
+process.env['LuisAPIHostName'] = 'westus.api.cognitive.microsoft.com';
+
 // Setup Restify Server
 var server = restify.createServer();
 server.listen(process.env.port || process.env.PORT || 3978, function () {
@@ -36,7 +42,7 @@ var tableStorage = new botbuilder_azure.AzureBotStorage({ gzipData: false }, azu
 
 // Create your bot with a function to receive messages from the user
 var bot = new builder.UniversalBot(connector);
-bot.set('storage', tableStorage);
+//bot.set('storage', tableStorage);
 
 // Make sure you add code to validate these fields
 var luisAppId = process.env.LuisAppId;
@@ -85,8 +91,10 @@ var intents = new builder.IntentDialog({ recognizers: [recognizer] })
     session.send('Sorry, I did not understand \'%s\'.', session.message.text);
 });
 
-bot.dialog('/google', [].concat(
-	auth.authenticate('google'), //use authenticate as a waterfall step
+bot.dialog('/', [].concat(
+  function(session) {
+    auth.authenticate('google')
+  },
 	function(session, results) {
 		// this waterfall step will only be reached if authentication succeeded
 
@@ -95,4 +103,9 @@ bot.dialog('/google', [].concat(
 	}
 ));
 
-bot.dialog('/', intents);
+/*bot.dialog('/', function(session) {
+  console.log("HFFDSFSF")
+  session.send("FUCK YOU ALLISON")
+})*/
+
+//bot.dialog('/', intents);
