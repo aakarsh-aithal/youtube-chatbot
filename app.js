@@ -5,6 +5,8 @@ A simple echo bot for the Microsoft Bot Framework.
 var restify = require('restify');
 var builder = require('botbuilder');
 var botbuilder_azure = require("botbuilder-azure");
+var botauth = require("botauth");
+var GoogleStrategy = require('passport-google-oauth20').Strategy;
 
 // Setup Restify Server
 var server = restify.createServer();
@@ -44,6 +46,27 @@ var luisAPIHostName = process.env.LuisAPIHostName || 'westus.api.cognitive.micro
 const LuisModelUrl = 'https://' + luisAPIHostName + '/luis/v1/application?id=' + luisAppId + '&subscription-key=' + luisAPIKey;
 
 // Main dialog with LUIS
+// Initialize with the strategies we want to use
+var auth = new botauth.BotAuthenticator(server, bot, {
+ secret : "something secret",
+ baseUrl : "https://google.com" }
+);
+
+auth.provider('google',
+	function(options) {
+		return new GoogleStrategy({
+        clientID: '589477556905-quf7iv29vmha2260418upbe67fkme70j.apps.googleusercontent.com',
+        clientSecret: 'vqKfpDUXXFx2tu6_H4IIXbjd',
+        callbackURL: "http://www.example.com/auth/google/callback"
+      },
+      function(accessToken, refreshToken, profile, cb) {
+        console.log(accessToken);
+        done(null, profile);
+      }
+    )
+	}
+);
+
 var recognizer = new builder.LuisRecognizer(LuisModelUrl);
 var intents = new builder.IntentDialog({ recognizers: [recognizer] })
 .matches('Greeting', (session) => {
@@ -61,5 +84,15 @@ var intents = new builder.IntentDialog({ recognizers: [recognizer] })
 .onDefault((session) => {
     session.send('Sorry, I did not understand \'%s\'.', session.message.text);
 });
+
+bot.dialog('/google', [].concat(
+	auth.authenticate('google'), //use authenticate as a waterfall step
+	function(session, results) {
+		// this waterfall step will only be reached if authentication succeeded
+
+		var user = auth.profile(session, 'google');
+		session.endDialog("Welcome retard");
+	}
+));
 
 bot.dialog('/', intents);
