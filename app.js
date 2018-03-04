@@ -95,11 +95,11 @@ var intents = new builder.IntentDialog({ recognizers: [recognizer] })
 .matches('Cancel', (session) => {
     session.send('You reached Cancel intent, you said \'%s\'.', session.message.text);
 })*/
-.matches('Help', "/help")
+.matches("Help", "/help")
 .matches("Hello", "/profile")
 .matches("Profile", "/profile")
 .matches("Logout", "/logout")
-.matches()
+.matches("LikeQuery", '/likes')
 /*
 .matches('<yourIntent>')... See details at http://docs.botframework.com/builder/node/guides/understanding-natural-language/
 */
@@ -109,28 +109,41 @@ var intents = new builder.IntentDialog({ recognizers: [recognizer] })
 
 
 bot.dialog("/oauth-success", function(session) {
-    session.send('Thank you for logging in with us!');
+    session.send('Thank you for signing in with us!');
+
+});
+
+bot.dialog('/root', function(session) {
     var msg = new builder.Message(session)
-	.text("Thank you for signing in with us! Choose one of the options below to get started, or     type \'help\' for some more options")
+	.text("Choose one of the options below to get started, or type \'help\' for some more options");
 	.suggestedActions(
 		builder.SuggestedActions.create(
 				session, [
-					builder.CardAction.imBack(session, "", "Green"),
-					builder.CardAction.imBack(session, "", "Blue"),
-					builder.CardAction.imBack(session, "", "Red")
+					builder.CardAction.imBack(session, "/help", "Help"),
 				]
 		)
     );
+    });
 
     session.send(msg);
-});
+})
 
-bot.dialog('LikeQuery', [
+bot.dialog('/help', [
+    function(session) {
+        var questions =
+              'The following are a list of questions you can prompt: \n\n
+               How is my video doing?\n
+               How many views do I have?\n
+               How many subs do I have?'
+        session.send(questions);
+    }
+]);
+
+bot.dialog('/likes', [
     function(session, args, next) {
         session.send("")
     }
 ]).triggerAction({
-    matches: 'LikeQuery',
     onInterrupted: function(session) {
         session.send("")
     }
