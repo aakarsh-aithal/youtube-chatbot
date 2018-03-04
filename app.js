@@ -10,6 +10,9 @@ const scopes  = [
 	"https://www.googleapis.com/auth/youtube"
 ]
 
+if(!process.env['WebsiteURL']) {
+  process.env['WebsiteURL'] = 'https://youtube-bot.azurewebsites.net'
+}
 process.env['MicrosoftAppId'] = 'd03d7959-06b2-4a56-a2b7-de1023b68bd7';
 process.env['MicrosoftAppPassword'] = 'k8S>b5omCfyVkq$9';
 process.env['LuisAppId'] = 'f765075e-9aad-4c1e-9a3c-0f13e8862aad';
@@ -107,7 +110,7 @@ const LuisModelUrl = 'https://' + luisAPIHostName + '/luis/v1/application?id=' +
 const oauth = new OAuth2(
   '589477556905-quf7iv29vmha2260418upbe67fkme70j.apps.googleusercontent.com',
   'vqKfpDUXXFx2tu6_H4IIXbjd',
-  'https://youtube-bot.azurewebsites.net/oauth2/callback'
+  process.env.WebsiteURL + '/oauth2/callback'
 )
 
 var recognizer = new builder.LuisRecognizer(LuisModelUrl);
