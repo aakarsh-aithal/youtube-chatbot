@@ -5,11 +5,15 @@ const restify = require('restify');
 const builder = require('botbuilder');
 const botbuilder_azure = require("botbuilder-azure");
 const { google } = require('googleapis');
+const service = google.youtube('v3');
 const OAuth2 = google.auth.OAuth2;
 const scopes  = [
 	"https://www.googleapis.com/auth/youtube"
 ]
 
+if(!process.env['WebsiteURL']) {
+  process.env['WebsiteURL'] = 'https://1e113005.ngrok.io'
+}
 process.env['MicrosoftAppId'] = 'd03d7959-06b2-4a56-a2b7-de1023b68bd7';
 process.env['MicrosoftAppPassword'] = 'k8S>b5omCfyVkq$9';
 process.env['LuisAppId'] = 'f765075e-9aad-4c1e-9a3c-0f13e8862aad';
@@ -50,12 +54,11 @@ var inMemoryStorage = new builder.MemoryBotStorage();
 
 // Create your bot with a function to receive messages from the user
 var bot = new builder.UniversalBot(connector, function (session) {
-  console.log(oauth)
   if(Object.keys(oauth.credentials).length === 0) {
     session.send('Hello, Welcome to the Youtube Content Creator Assistant!');
     session.send('Please verify your Youtube account to receive assistance.');
 
-    const url = oauth.generateAuthUrl({ access_type: 'online', scope: scopes }) +
+    const url = oauth.generateAuthUrl({ access_type: 'offline', scope: scopes, prompt: 'consent' }) +
       "&state=" + encodeURIComponent(JSON.stringify(session.message.address));
 
     session.send(new builder.Message(session).addAttachment(
@@ -86,6 +89,7 @@ server.get('/oauth2/callback', function(req, res, next) {
 
   oauth.getToken(code, function (error, tokens) {
     if (!error) {
+      console.log(tokens)
       oauth.setCredentials(tokens);
     }
     bot.beginDialog(address, '/oauth-success', error)
@@ -108,8 +112,12 @@ const LuisModelUrl = 'https://' + luisAPIHostName + '/luis/v1/application?id=' +
 const oauth = new OAuth2(
   '589477556905-quf7iv29vmha2260418upbe67fkme70j.apps.googleusercontent.com',
   'vqKfpDUXXFx2tu6_H4IIXbjd',
-  'https://youtube-bot.azurewebsites.net/oauth2/callback'
+  process.env.WebsiteURL + '/oauth2/callback'
 )
+
+google.options({
+  auth: oauth
+})
 
 var recognizer = new builder.LuisRecognizer(LuisModelUrl);
 
@@ -134,7 +142,46 @@ bot.dialog("/oauth-success", function(session, result) {
 
 bot.dialog('/help', [
     function(session) {
-        var questions = '**The following are a list of questions you can prompt:** \n' +
+      service.channels.list({
+        mine: true,
+        part: 'id,contentDetails'
+      }, function(error, result) {
+        if(error) {
+          return
+        }
+        const channelUploads = result.data.items[0].contentDetails.relatedPlaylists.uploads
+        const requestOptions = {
+          playlistId: channelUploads,
+          part: 'snippet',
+          maxResults: 5
+        };
+        
+        service.playlistItems.list(requestOptions,
+        function(error, result) {
+          const playlistItems = result.data.items;
+          
+          /*
+          playlistItems is array of youtube video objects
+          format:
+          
+          { kind: 'youtube#playlistItem',
+            etag: '"_gJQceDMxJ8gP-8T2HLXUoURK8c/75qYAfFn7WO-a2o-s6Pv_ypskCE"',
+            id: 'VVV6S1FxNmIxM0JjakNQZ19iZ3c1bUtBLlRmTkFSTUtaM01V',
+            snippet:
+             { publishedAt: '2018-03-04T00:32:20.000Z',
+               channelId: 'UCzKQq6b13BcjCPg_bgw5mKA',
+               title: 'Deleted Episode of The Office',
+               description: '',
+               thumbnails: [Object],
+               channelTitle: 'Dennis Park',
+               playlistId: 'UUzKQq6b13BcjCPg_bgw5mKA',
+               position: 0,
+               resourceId: [Object] } },
+          */
+        })
+      })
+      
+      var questions = '**The following are a list of questions you can prompt:** \n' +
               '* How is my video doing? \n' +
               '* How many views do I have? \n' +
               '* How many subs do I have? \n'
