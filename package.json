@@ -7,6 +7,7 @@
     "botauth": "^0.2.12",
     "botbuilder": "^3.13.1",
     "botbuilder-azure": "^3.0.4",
+    "dotenv": "^5.0.1",
     "firebase": "^4.10.1",
     "passport-google-oauth20": "^1.0.0",
     "restify": "^5.0.0"

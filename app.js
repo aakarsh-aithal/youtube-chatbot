@@ -7,12 +7,7 @@ var builder = require('botbuilder');
 var botbuilder_azure = require("botbuilder-azure");
 var botauth = require("botauth");
 var GoogleStrategy = require('passport-google-oauth20').Strategy;
-
-process.env['MicrosoftAppId'] = 'd03d7959-06b2-4a56-a2b7-de1023b68bd7';
-process.env['MicrosoftAppPassword'] = 'k8S>b5omCfyVkq$9';
-process.env['LuisAppId'] = 'f765075e-9aad-4c1e-9a3c-0f13e8862aad';
-process.env['LuisAPIKey'] = '9c4f87961624441f86f77cd4b677e41c';
-process.env['LuisAPIHostName'] = 'westus.api.cognitive.microsoft.com';
+require('dotenv').config();
 
 // Setup Restify Server
 var server = restify.createServer();
@@ -74,6 +69,8 @@ auth.provider('google',
 );
 
 var recognizer = new builder.LuisRecognizer(LuisModelUrl);
+
+
 var intents = new builder.IntentDialog({ recognizers: [recognizer] })
 .matches('Greeting', (session) => {
     session.send('You reached Greeting intent, you said \'%s\'.', session.message.text);
@@ -91,21 +88,16 @@ var intents = new builder.IntentDialog({ recognizers: [recognizer] })
     session.send('Sorry, I did not understand \'%s\'.', session.message.text);
 });
 
-bot.dialog('/', [].concat(
-  function(session) {
-    auth.authenticate('google')
-  },
-	function(session, results) {
-		// this waterfall step will only be reached if authentication succeeded
+// bot.dialog('/', [].concat(
+//   function(session) {
+//     auth.authenticate('google')
+//   },
+// 	function(session, results) {
+// 		// this waterfall step will only be reached if authentication succeeded
+//
+// 		var user = auth.profile(session, 'google');
+// 		session.endDialog("Welcome retard");
+// 	}
+// ));
 
-		var user = auth.profile(session, 'google');
-		session.endDialog("Welcome retard");
-	}
-));
-
-/*bot.dialog('/', function(session) {
-  console.log("HFFDSFSF")
-  session.send("FUCK YOU ALLISON")
-})*/
-
-//bot.dialog('/', intents);
+bot.dialog('/', intents);
