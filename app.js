@@ -99,7 +99,7 @@ const LuisModelUrl = 'https://' + luisAPIHostName + '/luis/v1/application?id=' +
 const oauth = new OAuth2(
   '589477556905-quf7iv29vmha2260418upbe67fkme70j.apps.googleusercontent.com',
   'vqKfpDUXXFx2tu6_H4IIXbjd',
-  'https://d455b179.ngrok.io/oauth2/callback'
+  'https://youtube-bot.azurewebsites.net/oauth2/callback'
 )
 
 var recognizer = new builder.LuisRecognizer(LuisModelUrl);
@@ -130,6 +130,7 @@ bot.dialog("/oauth-success", function(session, result) {
     session.send('Thank you for signing in with us!');
     session.beginDialog('/help')
   }
+  res.send('<script>window.close();</script>')
   session.endDialog()
 });
 
