@@ -124,7 +124,8 @@ var recognizer = new builder.LuisRecognizer(LuisModelUrl);
 
 var intents = new builder.IntentDialog({ recognizers: [recognizer] })
 .matches("Help", "/help")
-.matches("Likes", '/likes')
+.matches("Likes", '/video')
+.matches("Views", '/views')
 .matches("Subscribers", '/subscriber')
 .onDefault((session) => {
     session.send('Sorry, I did not understand \'%s\'.', session.message.text);
@@ -158,46 +159,45 @@ bot.dialog('/help', [
     }
 ]);
 
-bot.dialog('/likes', [
-    function(session, args, next) {
-        var videosData = {};
-        var videosDataTitles = '';
-        service.channels.list({
-          mine: true,
-          part: 'id,contentDetails'
-        }, function(error, result) {
+bot.dialog('/video', [
+  function(session, args, next) {
+      var videosData = {};
+      var videosDataTitles = '';
+      service.channels.list({
+        mine: true,
+        part: 'id,contentDetails'
+      }, function(error, result) {
+        if(error) {
+          next();
+        }
+
+        const channelUploads = result.data.items[0].contentDetails.relatedPlaylists.uploads
+        const requestOptions = {
+          playlistId: channelUploads,
+          part: 'snippet',
+          maxResults: 5
+        };
+
+        service.playlistItems.list(requestOptions,
+        function(error, result) {
           if(error) {
             next();
           }
+          console.log(result);
+          var playlistItems = result.data.items;
+          console.log(playlistItems);
+          session.privateConversationData.videoIDs = playlistItems.map((curr) => curr.snippet.resourceId.videoId);
+          
+          for(var i=0; i < playlistItems.length; i++) {
+            videosData[i + 1] = playlistItems[i];
+          }
 
-          const channelUploads = result.data.items[0].contentDetails.relatedPlaylists.uploads
-          const requestOptions = {
-            playlistId: channelUploads,
-            part: 'snippet',
-            maxResults: 5
-          };
-
-          service.playlistItems.list(requestOptions,
-          function(error, result) {
-            if(error) {
-              next();
-            }
-            console.log(result);
-            var playlistItems = result.data.items;
-            console.log(playlistItems);
-            session.privateConversationData.videoIDs = playlistItems.map((curr) => curr.snippet.resourceId.videoId);
-            
-            for(var i=0; i < playlistItems.length; i++) {
-              videosData[i + 1] = playlistItems[i];
-            }
-
-            videosDataTitles = playlistItems
-                                    .reduce((accum, curr, i) => `${accum} \n ${i+1}. ${curr.snippet.title}`, "")
-            var selections = 'Of which of the following videos?' + videosDataTitles;
-            builder.Prompts.choice(session, selections, videosData, { listStyle: 3 });
-          })
+          videosDataTitles = playlistItems
+                                  .reduce((accum, curr, i) => `${accum} \n ${i+1}. ${curr.snippet.title}`, "")
+          var selections = 'Of which of the following videos?' + videosDataTitles;
+          builder.Prompts.choice(session, selections, videosData, { listStyle: 3 });
         })
-        
+      })
     },
     function(session, result, next) {
         var videoIDs = session.privateConversationData.videoIDs;
@@ -214,23 +214,71 @@ bot.dialog('/likes', [
                 return;
               }
               var video = result.data.items[0];
-              var likeCount = video.statistics.likeCount;
-              var dislikeCount = video.statistics.dislikeCount;
-              var title = video.snippet.title;
-              session.send(`You have ${likeCount} likes and ${dislikeCount} on video ${title}`);
-              session.endDialog();
+              session.privateConversationData.video = video;
+              var selections = 'Would you like more information about views, likes/dislikes, or comments?';
+              builder.Prompts.choice(session, selections, 'Views|Likes/Dislikes|Comments', { listStyle: 3 });
             })
         } else {
-          session.send('There was an error processing your request');
+          next();
         } 
-        
-    }
-]).triggerAction({
-    onInterrupted: function(session) {
-        session.send("Please Try Again")
-    }
-})
+    }, 
+    function(session, result, next) {
+      var response = result.response.entity;
+      console.log(result);
+      console.log(result == 'Views');
+      if(response == 'Views') {
+        session.replaceDialog('/views');
+      } else if(response == 'Likes/Dislikes') {
+        session.replaceDialog('/likes');
+      } else if(response == 'Comments') {
+        session.replaceDialog('/comments');
+      } else {
+        session.send('There was an error processing your request');
+      }
+    }    
+]);
 
+bot.dialog('/likes', [
+  function(session, args) {
+    var video = session.privateConversationData.video;
+    console.log(video);
+    var likeCount = video.statistics.likeCount;
+    var dislikeCount = video.statistics.dislikeCount;
+    var title = video.snippet.title;
+    session.send(`You have ${likeCount} likes and ${dislikeCount} on video ${title}`);
+    session.endDialog();
+  }
+]);
+
+bot.dialog('/views', [
+  function(session, args) {
+    var video = session.privateConversationData.video;
+    console.log(video);
+    var viewCount = video.statistics.viewCount;
+    var title = video.snippet.title;
+    session.send(`You have ${viewCount} likes on your video ${title}`);
+    session.endDialog();
+  }
+]);
+
+bot.dialog('/comment', [
+  function(session, args) {
+    var video = session.privateConversationData.video;
+    console.log(video);
+    var commentCount = video.statistics.viewCount;
+    var title = video.snippet.title;
+    session.send(`You have ${commentCount} likes on your video ${title}`);
+    builder.Prompts.confirm(session, "Would you like to learn some more about what people are saying?")
+  },
+  function(session, result, next) {
+    console.log(result.response);
+    if(result.response.entity == 'yes') {
+      
+    } else{
+      session.endDialog();
+    }
+  }
+]);
 
 
 /*
