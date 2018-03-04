@@ -19,6 +19,13 @@ process.env['LuisAPIHostName'] = 'westus.api.cognitive.microsoft.com';
 // Setup Restify Server
 var server = restify.createServer();
 server.use(restify.plugins.queryParser());
+server.use(
+  function crossOrigin(req,res,next){
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "X-Requested-With");
+    return next();
+  }
+)
 server.listen(process.env.port || process.env.PORT || 3978, function () {
    console.log('%s listening to %s', server.name, server.url);
 });
@@ -43,6 +50,7 @@ var inMemoryStorage = new builder.MemoryBotStorage();
 
 // Create your bot with a function to receive messages from the user
 var bot = new builder.UniversalBot(connector, function (session) {
+  console.log(oauth)
   if(Object.keys(oauth.credentials).length === 0) {
     session.send('Hello, Welcome to the Youtube Content Creator Assistant!');
     session.send('Please verify your Youtube account to receive assistance.');
