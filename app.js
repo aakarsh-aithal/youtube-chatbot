@@ -192,29 +192,14 @@ bot.dialog('/video', [
           var playlistItems = result.data.items;
           session.privateConversationData.videoIDs = playlistItems.map((curr) => curr.snippet.resourceId.videoId);
           
-          /*for(var i=0; i < playlistItems.length; i++) {
+          for(var i=0; i < playlistItems.length; i++) {
             videosData[i + 1] = playlistItems[i];
           }
 
           videosDataTitles = playlistItems
                                   .reduce((accum, curr, i) => `${accum} \n ${i+1}. ${curr.snippet.title}`, "")
           var selections = 'Of which of the following videos?' + videosDataTitles;
-          builder.Prompts.choice(session, selections, videosData, { listStyle: 3 });*/
-        let playlistCards = []
-        for(let i = 0; i < playlistItems.length; i++) {
-          playlistCards.push(new builder.HeroCard(session)
-                .title(playlistItems[i].snippet.title)
-                .images([builder.CardImage.create(session, playlistItems[i].snippet.thumbnails.high.url)])
-                .buttons([
-                    builder.CardAction.imBack(session, i, "Select")
-                ]))
-        }
-          console.log(playlistCards)
-          
-          var msg = new builder.Message(session);
-          msg.attachmentLayout(builder.AttachmentLayout.carousel)
-          msg.attachments(playlistCards);
-          session.send(msg).endDialog()
+          builder.Prompts.choice(session, selections, videosData, { listStyle: 3 });
         })
       })
     },
@@ -334,6 +319,7 @@ bot.dialog('/comments', [
         }).then(response => {
           const { documents } = response
           let positiveCommentCounter = 0
+          let offensiveComments = []
           let negativeComments = []
           
           for(let i = 0; i < documents.length; i++) {
@@ -343,7 +329,18 @@ bot.dialog('/comments', [
               const negativeComment = commentTexts.find(commentText => {
                 return commentText.id === documents[i].id
               })
-              console.log(negativeComment)
+              const negativeCommentWords = negativeComment.text.split(" ");
+              let offensiveWordCounter = 0;
+              
+              for(let j = 0; j < negativeCommentWords.length; j++) {
+                if(negativeCommentWords[j].replace(/[^A-Z]/g, "").length > 0.5 * negativeCommentWords[j].length) {
+                  offensiveWordCounter++;
+                }
+              }
+              
+              if(offensiveWordCounter > 0.5 * negativeCommentWords.length) {
+                offensiveComments.push(negativeComment)
+              }
               negativeComments.push(negativeComment);
             }
           }
@@ -355,6 +352,9 @@ bot.dialog('/comments', [
           } else {
             session.send(`Uh oh. It appears that a lot of comments on this video were negative, with around ${Math.round(positiveCommentCounter / documents.length * 100)}% of them being positive.` +
             ` For example, a user wrote "${negativeComments[0].text}".`)
+            if(offensiveComments.length > 0) {
+              session.send(`Of these, ${Math.round(offensiveComments.length / negativeComments.length * 100)}% were particularly offensive. For example, a user commented "${offensiveComments[0].text}"`)
+            }
           }
           session.endDialog()
         }).catch(error => {
