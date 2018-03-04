@@ -80,9 +80,10 @@ var bot = new builder.UniversalBot(connector, function (session) {
 });
 
 server.get('/oauth2/callback', function(req, res, next) {
+    console.log('hi');
   const { state, code } = req.query
   const address = JSON.parse(state)
-  
+
   oauth.getToken(code, function (error, tokens) {
     if (!error) {
       oauth.setCredentials(tokens);
@@ -113,25 +114,15 @@ const oauth = new OAuth2(
 var recognizer = new builder.LuisRecognizer(LuisModelUrl);
 
 var intents = new builder.IntentDialog({ recognizers: [recognizer] })
-/*.matches('Help', (session) => {
-    session.send('You reached Help intent, you said \'%s\'.', session.message.text);
-})
-.matches('Cancel', (session) => {
-    session.send('You reached Cancel intent, you said \'%s\'.', session.message.text);
-})*/
 .matches("Help", "/help")
-.matches("Hello", "/profile")
-.matches("Profile", "/profile")
-.matches("Logout", "/logout")
-.matches("LikeQuery", '/likes')
-/*
-.matches('<yourIntent>')... See details at http://docs.botframework.com/builder/node/guides/understanding-natural-language/
-*/
+.matches("Likes", '/likes')
+.matches("")
+.matches("")
 .onDefault((session) => {
     session.send('Sorry, I did not understand \'%s\'.', session.message.text);
 });
 
-bot.dialog("/oauth-success", function(session, result) {    
+bot.dialog("/oauth-success", function(session, result) {
   if(result) {
     session.send('Please try signing in again.');
   } else {
@@ -147,22 +138,34 @@ bot.dialog('/help', [
               '* How is my video doing? \n' +
               '* How many views do I have? \n' +
               '* How many subs do I have? \n'
-        console.log(questions);
         session.send({
           textFormat: 'markdown',
           text: questions
         });
         session.endDialog()
     }
-    
+
 ]);
 
 bot.dialog('/likes', [
-    function(session, args, next) {
-        session.send("")
+    function(session) {
+        //generate list of first 5 videos and map those to an array of
+        var videosData = {};
+
+        var selections = 'On which of the following videos? \n' +
+              '1. Video 1 \n' +
+              '2. Video 2 \n' +
+              '3. Video 3 \n' +
+              '4. Video 4 \n' +
+              '5. Video 5 \n'
+
+        build.Prompts.choice(session, "On which of the following videos?", videosData, { listStyle: 3});
+    },
+    function(session, result, next) {
+
     }
 ]).triggerAction({
     onInterrupted: function(session) {
-        session.send("")
+        session.send("Nice Try Boi")
     }
-  })
+})
