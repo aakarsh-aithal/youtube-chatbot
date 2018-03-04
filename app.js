@@ -140,47 +140,10 @@ bot.dialog("/oauth-success", function(session, result) {
   session.endDialog()
 });
 
+
 bot.dialog('/help', [
     function(session) {
-      service.channels.list({
-        mine: true,
-        part: 'id,contentDetails'
-      }, function(error, result) {
-        if(error) {
-          return
-        }
-        const channelUploads = result.data.items[0].contentDetails.relatedPlaylists.uploads
-        const requestOptions = {
-          playlistId: channelUploads,
-          part: 'snippet',
-          maxResults: 5
-        };
-        
-        service.playlistItems.list(requestOptions,
-        function(error, result) {
-          const playlistItems = result.data.items;
-          
-          /*
-          playlistItems is array of youtube video objects
-          format:
-          
-          { kind: 'youtube#playlistItem',
-            etag: '"_gJQceDMxJ8gP-8T2HLXUoURK8c/75qYAfFn7WO-a2o-s6Pv_ypskCE"',
-            id: 'VVV6S1FxNmIxM0JjakNQZ19iZ3c1bUtBLlRmTkFSTUtaM01V',
-            snippet:
-             { publishedAt: '2018-03-04T00:32:20.000Z',
-               channelId: 'UCzKQq6b13BcjCPg_bgw5mKA',
-               title: 'Deleted Episode of The Office',
-               description: '',
-               thumbnails: [Object],
-               channelTitle: 'Dennis Park',
-               playlistId: 'UUzKQq6b13BcjCPg_bgw5mKA',
-               position: 0,
-               resourceId: [Object] } },
-          */
-        })
-      })
-      
+
       var questions = '**The following are a list of questions you can prompt:** \n' +
               '* How is my video doing? \n' +
               '* How many views do I have? \n' +
@@ -194,22 +157,72 @@ bot.dialog('/help', [
 
 ]);
 
+var playListItems;
+
 bot.dialog('/likes', [
-    function(session) {
-        //generate list of first 5 videos and map those to an array of
+    function(session, args, next) {
+        service.channels.list({
+          mine: true,
+          part: 'id,contentDetails'
+        }, function(error, result) {
+          if(error) {
+            next();
+          }
+          const channelUploads = result.data.items[0].contentDetails.relatedPlaylists.uploads
+          const requestOptions = {
+            playlistId: channelUploads,
+            part: 'snippet,statistics',
+            maxResults: 5
+          };
+
+          service.playlistItems.list(requestOptions,
+          function(error, result) {
+            if(error) {
+                next();
+            }
+            playlistItems = result.data.items;
+
+            /*
+            playlistItems is array of youtube video objects
+            format:
+
+            { kind: 'youtube#playlistItem',
+              etag: '"_gJQceDMxJ8gP-8T2HLXUoURK8c/75qYAfFn7WO-a2o-s6Pv_ypskCE"',
+              id: 'VVV6S1FxNmIxM0JjakNQZ19iZ3c1bUtBLlRmTkFSTUtaM01V',
+              snippet:
+               { publishedAt: '2018-03-04T00:32:20.000Z',
+                 channelId: 'UCzKQq6b13BcjCPg_bgw5mKA',
+                 title: 'Deleted Episode of The Office',
+                 description: '',
+                 thumbnails: [Object],
+                 channelTitle: 'Dennis Park',
+                 playlistId: 'UUzKQq6b13BcjCPg_bgw5mKA',
+                 position: 0,
+                 resourceId: [Object] } },
+            */
+
+
+            var videosData = {}
+            playlistItems.forEach((curr, i) => videosData[i] = curr);
+
+            var videosDataTitles = playlistItems
+                                    .reduce((curr, accum, i) => `${accum} \n ${i+1}. ${curr.snippet.title}`, "")
+
+          })
+        })
         var videosData = {};
 
-        var selections = 'On which of the following videos? \n' +
-              '1. Video 1 \n' +
-              '2. Video 2 \n' +
-              '3. Video 3 \n' +
-              '4. Video 4 \n' +
-              '5. Video 5 \n'
+        var selections = 'On which of the following videos?' + videosDataTitles;
 
         build.Prompts.choice(session, "On which of the following videos?", videosData, { listStyle: 3});
     },
     function(session, result, next) {
-
+        if(result.response) {
+            var video = playListItems[result.response.entity];
+            session.send(`You have ${video.statistics.likeCount} likes and ${video.statistics.dislikeCount} on video ${video.snippet.title}`)
+        } else {
+            session.send('NEVA FREEZE');
+        }
     }
 ]).triggerAction({
     onInterrupted: function(session) {
