@@ -43,6 +43,7 @@ var inMemoryStorage = new builder.MemoryBotStorage();
 
 // Create your bot with a function to receive messages from the user
 var bot = new builder.UniversalBot(connector, function (session) {
+  if(Object.keys(oauth.credentials).length === 0) {
     session.send('Hello, Welcome to the Youtube Content Creator Assistant!');
     session.send('Please verify your Youtube account to receive assistance.');
 
@@ -55,16 +56,31 @@ var bot = new builder.UniversalBot(connector, function (session) {
         .text('Log In to Youtube')
         .button('Log In', url))
     )
-
+    session.endDialog()
+  } else {
+    var msg = new builder.Message(session)
+    .text("Choose one of the options below to get started, or type \'help\' for some more options")
+    .suggestedActions(
+      builder.SuggestedActions.create(
+          session, [
+            builder.CardAction.postBack(session, "/help", "Help"),
+          ]
+      )
+      );
+      session.send(msg);
+  }
 });
 
 server.get('/oauth2/callback', function(req, res, next) {
   const { state, code } = req.query
   const address = JSON.parse(state)
-
-  oauth.getToken(code, function(error, tokens) {
-    bot.beginDialog(address, '/oauth-success', tokens)
-  });
+  
+  oauth.getToken(code, function (error, tokens) {
+    if (!error) {
+      oauth.setCredentials(tokens);
+    }
+    bot.beginDialog(address, '/oauth-success', error)
+  })
 
   res.send(200);
 });
@@ -107,36 +123,30 @@ var intents = new builder.IntentDialog({ recognizers: [recognizer] })
     session.send('Sorry, I did not understand \'%s\'.', session.message.text);
 });
 
-
-bot.dialog("/oauth-success", function(session) {
+bot.dialog("/oauth-success", function(session, result) {    
+  if(result) {
+    session.send('Please try signing in again.');
+  } else {
     session.send('Thank you for signing in with us!');
-
+    session.beginDialog('/help')
+  }
+  session.endDialog()
 });
-
-bot.dialog('/root', function(session) {
-    var msg = new builder.Message(session)
-	.text("Choose one of the options below to get started, or type \'help\' for some more options");
-	.suggestedActions(
-		builder.SuggestedActions.create(
-				session, [
-					builder.CardAction.imBack(session, "/help", "Help"),
-				]
-		)
-    );
-    });
-
-    session.send(msg);
-})
 
 bot.dialog('/help', [
     function(session) {
-        var questions =
-              'The following are a list of questions you can prompt: \n\n
-               How is my video doing?\n
-               How many views do I have?\n
-               How many subs do I have?'
-        session.send(questions);
+        var questions = '**The following are a list of questions you can prompt:** \n' +
+              '* How is my video doing? \n' +
+              '* How many views do I have? \n' +
+              '* How many subs do I have? \n'
+        console.log(questions);
+        session.send({
+          textFormat: 'markdown',
+          text: questions
+        });
+        session.endDialog()
     }
+    
 ]);
 
 bot.dialog('/likes', [
@@ -147,4 +157,4 @@ bot.dialog('/likes', [
     onInterrupted: function(session) {
         session.send("")
     }
-})
+  })
