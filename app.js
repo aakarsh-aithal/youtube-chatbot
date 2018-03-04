@@ -1,12 +1,14 @@
 /*-----------------------------------------------------------------------------
 A simple echo bot for the Microsoft Bot Framework.
 -----------------------------------------------------------------------------*/
-
-var restify = require('restify');
-var builder = require('botbuilder');
-var botbuilder_azure = require("botbuilder-azure");
-var botauth = require("botauth");
-var GoogleStrategy = require('passport-google-oauth20').Strategy;
+const restify = require('restify');
+const builder = require('botbuilder');
+const botbuilder_azure = require("botbuilder-azure");
+const { google } = require('googleapis');
+const OAuth2 = google.auth.OAuth2;
+const scopes  = [
+	"https://www.googleapis.com/auth/youtube"
+]
 
 process.env['MicrosoftAppId'] = 'd03d7959-06b2-4a56-a2b7-de1023b68bd7';
 process.env['MicrosoftAppPassword'] = 'k8S>b5omCfyVkq$9';
@@ -16,6 +18,7 @@ process.env['LuisAPIHostName'] = 'westus.api.cognitive.microsoft.com';
 
 // Setup Restify Server
 var server = restify.createServer();
+server.use(restify.plugins.queryParser());
 server.listen(process.env.port || process.env.PORT || 3978, function () {
    console.log('%s listening to %s', server.name, server.url);
 });
@@ -36,13 +39,11 @@ server.post('/api/messages', connector.listen());
 * For samples and documentation, see: https://github.com/Microsoft/BotBuilder-Azure
 * ---------------------------------------------------------------------------------------- */
 
-var tableName = 'botdata';
-var azureTableClient = new botbuilder_azure.AzureTableClient(tableName, process.env['AzureWebJobsStorage']);
-var tableStorage = new botbuilder_azure.AzureBotStorage({ gzipData: false }, azureTableClient);
+var inMemoryStorage = new builder.MemoryBotStorage();
 
 // Create your bot with a function to receive messages from the user
 var bot = new builder.UniversalBot(connector);
-//bot.set('storage', tableStorage);
+bot.set('storage', inMemoryStorage);
 
 // Make sure you add code to validate these fields
 var luisAppId = process.env.LuisAppId;
@@ -53,37 +54,23 @@ const LuisModelUrl = 'https://' + luisAPIHostName + '/luis/v1/application?id=' +
 
 // Main dialog with LUIS
 // Initialize with the strategies we want to use
-var auth = new botauth.BotAuthenticator(server, bot, {
- secret : "something secret",
- baseUrl : "https://google.com" }
-);
-
-auth.provider('google',
-	function(options) {
-		return new GoogleStrategy({
-        clientID: '589477556905-quf7iv29vmha2260418upbe67fkme70j.apps.googleusercontent.com',
-        clientSecret: 'vqKfpDUXXFx2tu6_H4IIXbjd',
-        callbackURL: "http://www.example.com/auth/google/callback"
-      },
-      function(accessToken, refreshToken, profile, cb) {
-        console.log(accessToken);
-        done(null, profile);
-      }
-    )
-	}
-);
+const oauth = new OAuth2(
+  '589477556905-quf7iv29vmha2260418upbe67fkme70j.apps.googleusercontent.com', 
+  'vqKfpDUXXFx2tu6_H4IIXbjd', 
+  'https://d455b179.ngrok.io/oauth2/callback'
+)
 
 var recognizer = new builder.LuisRecognizer(LuisModelUrl);
 var intents = new builder.IntentDialog({ recognizers: [recognizer] })
-.matches('Greeting', (session) => {
-    session.send('You reached Greeting intent, you said \'%s\'.', session.message.text);
-})
-.matches('Help', (session) => {
+/*.matches('Help', (session) => {
     session.send('You reached Help intent, you said \'%s\'.', session.message.text);
 })
 .matches('Cancel', (session) => {
     session.send('You reached Cancel intent, you said \'%s\'.', session.message.text);
-})
+})*/
+.matches("hello", "/hello")
+.matches("Profile", "/profile")
+.matches("logout", "/logout")
 /*
 .matches('<yourIntent>')... See details at http://docs.botframework.com/builder/node/guides/understanding-natural-language/
 */
@@ -91,17 +78,32 @@ var intents = new builder.IntentDialog({ recognizers: [recognizer] })
     session.send('Sorry, I did not understand \'%s\'.', session.message.text);
 });
 
-bot.dialog('/', [].concat(
-  function(session) {
-    auth.authenticate('google')
-  },
-	function(session, results) {
-		// this waterfall step will only be reached if authentication succeeded
+bot.dialog('/', intents);
 
-		var user = auth.profile(session, 'google');
-		session.endDialog("Welcome retard");
-	}
-));
+bot.dialog('/profile', [
+  function(session) {
+    const url = oauth.generateAuthUrl({ access_type: 'online', scope: scopes }) +  
+      "&state=" + encodeURIComponent(JSON.stringify(session.message.address));
+          
+    session.send(new builder.Message(session).addAttachment(
+      new builder
+        .SigninCard(session)
+        .text('Log In to Youtube')  
+        .button('Log In', url))  
+    )
+  }
+]);
+
+server.get('/oauth2/callback', function(req, res, next) {
+  const { state, code } = req.query 
+  const address = JSON.parse(state)
+  
+  oauth.getToken(code, function(error, tokens) {
+    bot.beginDialog(address, '/oauth-success', tokens)
+  });
+  
+  res.send(200);
+});
 
 /*bot.dialog('/', function(session) {
   console.log("HFFDSFSF")
