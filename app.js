@@ -78,11 +78,11 @@ var bot = new builder.UniversalBot(connector, function (session) {
     session.endDialog()
   } else {
     var msg = new builder.Message(session)
-    .text("Choose one of the options below to get started, or type \'help\' for some more options")
+    .text("Choose one of the options below to get started, or type \'commands\' for some more options")
     .suggestedActions(
       builder.SuggestedActions.create(
           session, [
-            builder.CardAction.postBack(session, "/help", "Help"),
+            builder.CardAction.postBack(session, "/commands", "Commands"),
           ]
       )
     );
@@ -130,9 +130,12 @@ var recognizer = new builder.LuisRecognizer(LuisModelUrl);
 
 var intents = new builder.IntentDialog({ recognizers: [recognizer] })
 .matches("Help", "/help")
+.matches("Commands", "/commands")
 .matches("Likes", '/video')
-.matches("Views", '/views')
+.matches("Video Views", '/video')
+.matches("Comments", '/video')
 .matches("Subscribers", '/subscriber')
+.matches("End", '/end')
 .onDefault((session) => {
     session.send('Sorry, I did not understand \'%s\'.', session.message.text);
 });
@@ -154,9 +157,21 @@ bot.dialog('/help', [
     function(session) {
 
       var questions = '**The following are just a couple of questions you can prompt:** \n' +
-              '* How is my video doing? \n' +
               '* How many views do I have? \n' +
-              '* How many subs do I have? \n'
+              '* How many likes do I have? \n'
+        session.send({
+          textFormat: 'markdown',
+          text: questions
+        });
+        session.replaceDialog('/')
+    }
+]);
+
+bot.dialog('/commands', [
+    function(session) {
+      var questions = '* How are my comments looking like? \n' +
+              '* How many views do I have? \n' +
+              '* How many likes do I have? \n'
         session.send({
           textFormat: 'markdown',
           text: questions
@@ -245,7 +260,7 @@ bot.dialog('/likes', [
     var likeCount = video.statistics.likeCount;
     var dislikeCount = video.statistics.dislikeCount;
     var title = video.snippet.title;
-    session.send(`You have ${likeCount} likes and ${dislikeCount} on video ${title}`);
+    session.send(`You have ${likeCount} likes and ${dislikeCount} dislikes on video ${title}`);
     session.endDialog();
   }
 ]);
@@ -345,9 +360,9 @@ bot.dialog('/comments', [
             }
           }
 
-          if(positiveCommentCounter > 0.8 * documents.length) {
+          if(positiveCommentCounter > 0.7 * documents.length) {
             session.send(`It appears that the vast majority of your comments were positive, with around ${Math.round(positiveCommentCounter / documents.length * 100)}% of them being positive. Keep up the good work!`)
-          } else if(positiveCommentCounter > 0.5 * documents.length) {
+          } else if(positiveCommentCounter > 0.4 * documents.length) {
             session.send(`Interesting. It appears that your audience is divided on this video, with around ${Math.round(positiveCommentCounter / documents.length * 100)}% of them being positive.`)
           } else {
             session.send(`Uh oh. It appears that a lot of comments on this video were negative, with around ${Math.round(positiveCommentCounter / documents.length * 100)}% of them being positive.` +
@@ -366,6 +381,10 @@ bot.dialog('/comments', [
     }
   }
 ]);
+
+bot.dialog('/end', function(session, args) {
+  session.endConversation("Thank you so much for using our service!");
+})
 
 
 /*
