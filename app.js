@@ -130,7 +130,6 @@ bot.dialog("/oauth-success", function(session, result) {
     session.send('Thank you for signing in with us!');
     session.beginDialog('/help')
   }
-  res.send('<script>window.close();</script>')
   session.endDialog()
 });
 
