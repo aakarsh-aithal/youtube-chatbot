@@ -78,7 +78,7 @@ var bot = new builder.UniversalBot(connector, function (session) {
     session.endDialog()
   } else {
     var msg = new builder.Message(session)
-    .text("Choose one of the options below to get started, or type \'commands\' for some more options")
+    .text("Choose one of the options above to get started, or type \'commands\' for some more options")
     .suggestedActions(
       builder.SuggestedActions.create(
           session, [
@@ -130,6 +130,7 @@ var recognizer = new builder.LuisRecognizer(LuisModelUrl);
 
 var intents = new builder.IntentDialog({ recognizers: [recognizer] })
 .matches("Help", "/help")
+.matches("Greeting", "/commands")
 .matches("Commands", "/commands")
 .matches("Likes", '/video')
 .matches("Video Views", '/video')
