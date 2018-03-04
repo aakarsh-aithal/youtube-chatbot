@@ -116,7 +116,7 @@ var recognizer = new builder.LuisRecognizer(LuisModelUrl);
 var intents = new builder.IntentDialog({ recognizers: [recognizer] })
 .matches("Help", "/help")
 .matches("Likes", '/likes')
-.matches("")
+.matches("Subscribers", '/subscriber')
 .matches("")
 .onDefault((session) => {
     session.send('Sorry, I did not understand \'%s\'.', session.message.text);
