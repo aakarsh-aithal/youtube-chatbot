@@ -135,18 +135,18 @@ bot.dialog("/root", intents);
 bot.dialog("/oauth-success", function(session, result) {
   if(result) {
     session.send('Please try signing in again.');
+    session.replaceDialog('/');
   } else {
     session.send('Thank you for signing in with us!');
-    session.beginDialog('/help')
+    session.replaceDialog('/help')
   }
-  session.endDialog()
 });
 
 
 bot.dialog('/help', [
     function(session) {
 
-      var questions = '**The following are a list of questions you can prompt:** \n' +
+      var questions = '**The following are just a couple of questions you can prompt:** \n' +
               '* How is my video doing? \n' +
               '* How many views do I have? \n' +
               '* How many subs do I have? \n'
@@ -154,15 +154,14 @@ bot.dialog('/help', [
           textFormat: 'markdown',
           text: questions
         });
-        session.endDialog()
+        session.replaceDialog('/')
     }
-
 ]);
-
-var playListItems;
 
 bot.dialog('/likes', [
     function(session, args, next) {
+        var videosData = {};
+        var videosDataTitles = '';
         service.channels.list({
           mine: true,
           part: 'id,contentDetails'
@@ -170,64 +169,85 @@ bot.dialog('/likes', [
           if(error) {
             next();
           }
+
           const channelUploads = result.data.items[0].contentDetails.relatedPlaylists.uploads
           const requestOptions = {
             playlistId: channelUploads,
-            part: 'snippet,statistics',
+            part: 'snippet',
             maxResults: 5
           };
 
           service.playlistItems.list(requestOptions,
           function(error, result) {
             if(error) {
-                next();
+              next();
             }
-            playlistItems = result.data.items;
+            console.log(result);
+            var playlistItems = result.data.items;
+            console.log(playlistItems);
+            session.privateConversationData.videoIDs = playlistItems.map((curr) => curr.snippet.resourceId.videoId);
+            
+            for(var i=0; i < playlistItems.length; i++) {
+              videosData[i + 1] = playlistItems[i];
+            }
 
-            /*
-            playlistItems is array of youtube video objects
-            format:
-
-            { kind: 'youtube#playlistItem',
-              etag: '"_gJQceDMxJ8gP-8T2HLXUoURK8c/75qYAfFn7WO-a2o-s6Pv_ypskCE"',
-              id: 'VVV6S1FxNmIxM0JjakNQZ19iZ3c1bUtBLlRmTkFSTUtaM01V',
-              snippet:
-               { publishedAt: '2018-03-04T00:32:20.000Z',
-                 channelId: 'UCzKQq6b13BcjCPg_bgw5mKA',
-                 title: 'Deleted Episode of The Office',
-                 description: '',
-                 thumbnails: [Object],
-                 channelTitle: 'Dennis Park',
-                 playlistId: 'UUzKQq6b13BcjCPg_bgw5mKA',
-                 position: 0,
-                 resourceId: [Object] } },
-            */
-
-
-            var videosData = {}
-            playlistItems.forEach((curr, i) => videosData[i] = curr);
-
-            var videosDataTitles = playlistItems
-                                    .reduce((curr, accum, i) => `${accum} \n ${i+1}. ${curr.snippet.title}`, "")
-
+            videosDataTitles = playlistItems
+                                    .reduce((accum, curr, i) => `${accum} \n ${i+1}. ${curr.snippet.title}`, "")
+            var selections = 'Of which of the following videos?' + videosDataTitles;
+            builder.Prompts.choice(session, selections, videosData, { listStyle: 3 });
           })
         })
-        var videosData = {};
-
-        var selections = 'On which of the following videos?' + videosDataTitles;
-
-        build.Prompts.choice(session, "On which of the following videos?", videosData, { listStyle: 3});
+        
     },
     function(session, result, next) {
+        var videoIDs = session.privateConversationData.videoIDs;
         if(result.response) {
-            var video = playListItems[result.response.entity];
-            session.send(`You have ${video.statistics.likeCount} likes and ${video.statistics.dislikeCount} on video ${video.snippet.title}`)
+            var videoID = videoIDs[result.response.index];
+            console.log(videoID);
+            const requestOptions = {
+                id: videoID,
+                part: 'snippet,statistics',
+                maxResults: 1
+              };
+            service.videos.list(requestOptions, function(err, result) {
+              if(err) {
+                return;
+              }
+              var video = result.data.items[0];
+              var likeCount = video.statistics.likeCount;
+              var dislikeCount = video.statistics.dislikeCount;
+              var title = video.snippet.title;
+              session.send(`You have ${likeCount} likes and ${dislikeCount} on video ${title}`);
+              session.endDialog();
+            })
         } else {
-            session.send('NEVA FREEZE');
-        }
+          session.send('There was an error processing your request');
+        } 
+        
     }
 ]).triggerAction({
     onInterrupted: function(session) {
-        session.send("Nice Try Boi")
+        session.send("Please Try Again")
     }
 })
+
+
+
+/*
+playlistItems is array of youtube video objects
+format:
+
+{ kind: 'youtube#playlistItem',
+  etag: '"_gJQceDMxJ8gP-8T2HLXUoURK8c/75qYAfFn7WO-a2o-s6Pv_ypskCE"',
+  id: 'VVV6S1FxNmIxM0JjakNQZ19iZ3c1bUtBLlRmTkFSTUtaM01V',
+  snippet:
+   { publishedAt: '2018-03-04T00:32:20.000Z',
+     channelId: 'UCzKQq6b13BcjCPg_bgw5mKA',
+     title: 'Deleted Episode of The Office',
+     description: '',
+     thumbnails: [Object],
+     channelTitle: 'Dennis Park',
+     playlistId: 'UUzKQq6b13BcjCPg_bgw5mKA',
+     position: 0,
+     resourceId: [Object] } },
+*/
