@@ -77,8 +77,9 @@ var bot = new builder.UniversalBot(connector, function (session) {
             builder.CardAction.postBack(session, "/help", "Help"),
           ]
       )
-      );
-      session.send(msg);
+    );
+    session.send(msg);
+    session.beginDialog("/root");
   }
 });
 
@@ -125,10 +126,11 @@ var intents = new builder.IntentDialog({ recognizers: [recognizer] })
 .matches("Help", "/help")
 .matches("Likes", '/likes')
 .matches("Subscribers", '/subscriber')
-.matches("")
 .onDefault((session) => {
     session.send('Sorry, I did not understand \'%s\'.', session.message.text);
 });
+
+bot.dialog("/root", intents);
 
 bot.dialog("/oauth-success", function(session, result) {
   if(result) {
