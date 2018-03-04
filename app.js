@@ -189,19 +189,32 @@ bot.dialog('/video', [
           if(error) {
             next();
           }
-          console.log(result);
           var playlistItems = result.data.items;
-          console.log(playlistItems);
           session.privateConversationData.videoIDs = playlistItems.map((curr) => curr.snippet.resourceId.videoId);
           
-          for(var i=0; i < playlistItems.length; i++) {
+          /*for(var i=0; i < playlistItems.length; i++) {
             videosData[i + 1] = playlistItems[i];
           }
 
           videosDataTitles = playlistItems
                                   .reduce((accum, curr, i) => `${accum} \n ${i+1}. ${curr.snippet.title}`, "")
           var selections = 'Of which of the following videos?' + videosDataTitles;
-          builder.Prompts.choice(session, selections, videosData, { listStyle: 3 });
+          builder.Prompts.choice(session, selections, videosData, { listStyle: 3 });*/
+        let playlistCards = []
+        for(let i = 0; i < playlistItems.length; i++) {
+          playlistCards.push(new builder.HeroCard(session)
+                .title(playlistItems[i].snippet.title)
+                .images([builder.CardImage.create(session, playlistItems[i].snippet.thumbnails.high.url)])
+                .buttons([
+                    builder.CardAction.imBack(session, i, "Select")
+                ]))
+        }
+          console.log(playlistCards)
+          
+          var msg = new builder.Message(session);
+          msg.attachmentLayout(builder.AttachmentLayout.carousel)
+          msg.attachments(playlistCards);
+          session.send(msg).endDialog()
         })
       })
     },
@@ -209,7 +222,6 @@ bot.dialog('/video', [
         var videoIDs = session.privateConversationData.videoIDs;
         if(result.response) {
             var videoID = videoIDs[result.response.index];
-            console.log(videoID);
             const requestOptions = {
                 id: videoID,
                 part: 'snippet,statistics',
@@ -230,8 +242,6 @@ bot.dialog('/video', [
     }, 
     function(session, result, next) {
       var response = result.response.entity;
-      console.log(result);
-      console.log(result == 'Views');
       if(response == 'Views') {
         session.replaceDialog('/views');
       } else if(response == 'Likes/Dislikes') {
@@ -247,7 +257,6 @@ bot.dialog('/video', [
 bot.dialog('/likes', [
   function(session, args) {
     var video = session.privateConversationData.video;
-    console.log(video);
     var likeCount = video.statistics.likeCount;
     var dislikeCount = video.statistics.dislikeCount;
     var title = video.snippet.title;
@@ -259,7 +268,6 @@ bot.dialog('/likes', [
 bot.dialog('/views', [
   function(session, args) {
     var video = session.privateConversationData.video;
-    console.log(video);
     var viewCount = video.statistics.viewCount;
     var title = video.snippet.title;
     session.send(`You have ${viewCount} views on your video ${title}`);
@@ -305,6 +313,17 @@ bot.dialog('/comments', [
           }
         })
         
+        var short = 0;
+        var normal = 0;
+        for(var i = 0; i < commentTexts.length; i++) {
+          const numWords = commentTexts[i].text.split(' ').length;
+          if(numWords > 10) {
+            normal++;
+          } else {
+            short++;
+          }
+        }
+
         const body = {
           "documents": commentTexts
         };
