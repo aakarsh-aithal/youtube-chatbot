@@ -4,15 +4,19 @@
   "description": "",
   "main": "index.js",
   "dependencies": {
+    "async": "^2.6.0",
     "botauth": "^0.2.12",
     "botbuilder": "^3.13.1",
     "botbuilder-azure": "^3.0.4",
+    "cognitive-services": "^1.0.0",
     "cors": "^2.8.4",
     "dotenv": "^5.0.1",
     "firebase": "^4.10.1",
     "googleapis": "^27.0.0",
     "passport-google-oauth20": "^1.0.0",
+    "promise-retry": "^1.1.1",
     "restify": "^5.0.0",
+    "sleep-promise": "^2.0.0",
     "uuid": "^3.2.1"
   },
   "devDependencies": {

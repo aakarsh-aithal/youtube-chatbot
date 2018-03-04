@@ -4,15 +4,23 @@ A simple echo bot for the Microsoft Bot Framework.
 const restify = require('restify');
 const builder = require('botbuilder');
 const botbuilder_azure = require("botbuilder-azure");
+const cognitiveServices = require('cognitive-services');
+const async = require('async');
 const { google } = require('googleapis');
 const service = google.youtube('v3');
 const OAuth2 = google.auth.OAuth2;
 const scopes  = [
-	"https://www.googleapis.com/auth/youtube"
+	"https://www.googleapis.com/auth/youtube",
+  "https://www.googleapis.com/auth/youtube.force-ssl"
 ]
 
+const textAnalyticsClient = new cognitiveServices.textAnalytics({
+  apiKey: '781fbe6d5f2a424eb92fd7d0d616cd24',
+  endpoint: 'westcentralus.api.cognitive.microsoft.com'
+})
+
 if(!process.env['WebsiteURL']) {
-  process.env['WebsiteURL'] = 'https://1e113005.ngrok.io'
+  process.env['WebsiteURL'] = 'https://1e113005.ngrok.io';
 }
 process.env['MicrosoftAppId'] = 'd03d7959-06b2-4a56-a2b7-de1023b68bd7';
 process.env['MicrosoftAppPassword'] = 'k8S>b5omCfyVkq$9';
@@ -84,13 +92,11 @@ var bot = new builder.UniversalBot(connector, function (session) {
 });
 
 server.get('/oauth2/callback', function(req, res, next) {
-    console.log('hi');
   const { state, code } = req.query
   const address = JSON.parse(state)
 
   oauth.getToken(code, function (error, tokens) {
     if (!error) {
-      console.log(tokens)
       oauth.setCredentials(tokens);
     }
     bot.beginDialog(address, '/oauth-success', error)
@@ -256,25 +262,87 @@ bot.dialog('/views', [
     console.log(video);
     var viewCount = video.statistics.viewCount;
     var title = video.snippet.title;
-    session.send(`You have ${viewCount} likes on your video ${title}`);
+    session.send(`You have ${viewCount} views on your video ${title}`);
     session.endDialog();
   }
 ]);
 
-bot.dialog('/comment', [
+bot.dialog('/comments', [
   function(session, args) {
     var video = session.privateConversationData.video;
-    console.log(video);
-    var commentCount = video.statistics.viewCount;
+    var commentCount = video.statistics.commentCount;
     var title = video.snippet.title;
-    session.send(`You have ${commentCount} likes on your video ${title}`);
+    session.send(`You have ${commentCount} comments on your video ${title}`);
     builder.Prompts.confirm(session, "Would you like to learn some more about what people are saying?")
   },
   function(session, result, next) {
-    console.log(result.response);
-    if(result.response.entity == 'yes') {
+    if(result.response == true) {
+      var video = session.privateConversationData.video; 
+
+      var requestOptions = {
+        videoId: video.id,
+        part: 'snippet',
+        maxResults: 10,
+        textFormat: 'plainText'
+      };
       
-    } else{
+      service.commentThreads.list(requestOptions, function(err, response) {
+        if(err) {
+          console.log('The API returned an error: ' + err);
+          return;
+        }
+        
+        var comments = response.data.items;
+        
+        const headers = {
+          'Content-type': 'application/json'
+        }
+        
+        var commentTexts = comments.map(comment => {
+          return {
+            id: comment.snippet.topLevelComment.id,
+            text: comment.snippet.topLevelComment.snippet.textDisplay 
+          }
+        })
+        
+        const body = {
+          "documents": commentTexts
+        };
+        
+        textAnalyticsClient.sentiment({
+          headers,
+          body
+        }).then(response => {
+          const { documents } = response
+          let positiveCommentCounter = 0
+          let negativeComments = []
+          
+          for(let i = 0; i < documents.length; i++) {
+            if(documents[i].score > 0.60) {
+              positiveCommentCounter++;
+            } else {
+              const negativeComment = commentTexts.find(commentText => {
+                return commentText.id === documents[i].id
+              })
+              console.log(negativeComment)
+              negativeComments.push(negativeComment);
+            }
+          }
+
+          if(positiveCommentCounter > 0.8 * documents.length) {
+            session.send(`It appears that the vast majority of your comments were positive, with around ${Math.round(positiveCommentCounter / documents.length * 100)}% of them being positive. Keep up the good work!`)
+          } else if(positiveCommentCounter > 0.5 * documents.length) {
+            session.send(`Interesting. It appears that your audience is divided on this video, with around ${Math.round(positiveCommentCounter / documents.length * 100)}% of them being positive.`)
+          } else {
+            session.send(`Uh oh. It appears that a lot of comments on this video were negative, with around ${Math.round(positiveCommentCounter / documents.length * 100)}% of them being positive.` +
+            ` For example, a user wrote "${negativeComments[0].text}".`)
+          }
+          session.endDialog()
+        }).catch(error => {
+          console.log(error)
+        })
+      })
+    } else {
       session.endDialog();
     }
   }
